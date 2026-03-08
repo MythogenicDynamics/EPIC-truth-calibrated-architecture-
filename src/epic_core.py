@@ -93,6 +93,65 @@ class EpicCore:
         if rule['required_marker']:
             marker = rule['approved_forms'][0]
             return marker + " " + base
+        return base        anchor_score = self.arc.score_anchors(anchors)
+        claim_states = self.arc.assign_states(claims, [anchor_score] * len(claims))
+
+        # 6. Resolve lane
+        lane = self._resolve_lane(band, claim_states)
+
+        # 7. Define response with disclosure
+        base_response = "This is a governed response to your query: " + query
+        disclosed = self._apply_disclosure(lane, base_response)
+
+        # 8. Maintain
+        maintain_output = {
+            "steering_band": band,
+            "forecast_scores": scores,
+            "calibration_mismatch": 0.0,  # Real value would come from outcome
+            "oscillation_index": self.state.oscillation_index,
+            "telemetry_record": telemetry,
+            "claim_record_revision": {"query": claim_states},
+            "anchor_weight_adjustment": anchors,
+            "calibration_update_summary": {}
+        }
+        self.state.update_from_maintain(maintain_output)
+
+        return disclosed
+
+    def _probe_domain(self, query: str) -> str:
+        rules = self.spec['governance']['domain_assignment']['rules']
+        if 'self' in query.lower() or 'I am' in query:
+            return "SED"
+        elif '?' in query or 'what is' in query.lower() or 'how' in query.lower():
+            return "EED"
+        else:
+            return "WED"
+
+    def _simulate_anchors(self) -> Dict[str, float]:
+        classes = self.spec['arc']['trust_lattice']['anchor_classes']
+        return {cls: classes[cls]['default_weight'] for cls in classes}
+
+    def _resolve_lane(self, band: str, claim_states: List[str]) -> str:
+        rules = self.spec['route_system']['coupling_law']['rules']
+        if band in ["retrieve_first", "clarify_first", "abstain_cleanly"]:
+            return band
+        if all(s in ["verified", "well_supported"] for s in claim_states):
+            return "direct_answer"
+        elif any(s == "reasoned_inference" for s in claim_states):
+            return "inference"
+        elif any(s == "weak_inference" for s in claim_states):
+            return "weak_inference"
+        else:
+            return "speculative"
+
+    def _apply_disclosure(self, lane: str, base: str) -> str:
+        rules = self.spec['disclosure']['rules']
+        if lane == "direct_answer":
+            return base
+        rule = rules.get(lane, rules.get("weak_inference"))
+        if rule['required_marker']:
+            marker = rule['approved_forms'][0]
+            return marker + " " + base
         return base        claim_states = self.arc.classify_claims(claims, anchors)
 
         # 6. Resolve lane
