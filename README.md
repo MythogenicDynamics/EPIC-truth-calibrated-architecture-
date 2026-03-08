@@ -27,7 +27,7 @@ Addresses mathematical inevitability of hallucinations via upstream routing + di
 
 - `docs/EPIC-v1.0-Formalization.md` — Formalization
 
-- `docs/EPIC-v1.0-Formal-Spec.md` —Formal Spec
+- `docs/EPIC-v1.0-Formal-Spec.md` — Formal Spec
 
 
 ## Status
