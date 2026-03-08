@@ -38,7 +38,6 @@ DM on X @D_McMillan76
 https://github.com/PsychoFrogMultimedia/Contextual-Forecasting-Integrator
 
 
-```markdown
 ## Quick Start with LLM Wrapper (Anthropic/Claude)
 
 A basic wrapper integrating Claude (via Anthropic API) + simple in-memory RAG for ARC grounding is now available:
