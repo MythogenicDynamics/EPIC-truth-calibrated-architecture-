@@ -1,40 +1,52 @@
-from typing import Dict, Any, Tuple, List
+from __future__ import annotations
+from dataclasses import dataclass
+from typing import Any, Dict, Tuple
 
+
+@dataclass
 class CFIEngine:
-    """Full CFI implementation — forecasting, smoothing, hysteresis, band selection."""
+    spec: Dict[str, Any]
 
-    def __init__(self, spec: Dict[str, Any]):
-        self.spec = spec['cfi']
-        self.state: Dict[str, Any] = {
-            'S_prev': {},
-            'S_curr': {},
-            'forecast_history': [],
-            'band_history': [],
-            'mismatch_history': [],
-            'oscillation_index': 0.0
-        }
-        smoothing = self.spec['smoothing']['implementation_profile']
-        self.alpha = smoothing['alpha']
-        self.beta = smoothing['beta']
-        self.gamma = smoothing['gamma']
+    def forecast(self, signals: Dict[str, float], prev_state: Dict[str, Any] | None = None) -> Tuple[str, Dict[str, Any], Dict[str, Any]]:
+        bands = self.spec["cfi"]["steering_bands"]
+        hysteresis = self.spec["cfi"]["dynamic_hysteresis"]["lane_switch_margins"]
 
-    def forecast(self, prompt: str, history: List[str]) -> Tuple[str, Dict[str, float], Dict[str, Any]]:
-        """Compute full multi-horizon forecast and select steering band."""
-        dimensions = self.spec['forecast_dimensions']
-        scores = self._compute_dimension_scores(prompt, history, dimensions)
+        ambiguity = signals.get("ambiguity_load", 0.0)
+        thinness = signals.get("anchor_thinness", 0.0)
+        bluff = signals.get("bluff_pressure", 0.0)
+        cost = signals.get("cost_of_wrong", 0.0)
 
-        # Apply smoothing
-        if self.state['forecast_history']:
-            scores = self._smooth_scores(scores)
+        score = max(
+            ambiguity * 0.25 + thinness * 0.25 + bluff * 0.30 + cost * 0.20,
+            0.0,
+        )
 
-        # Aggregate risk (weighted horizons from spec)
-        w_short = 0.5
-        w_mid = 0.3
-        w_far = 0.2
-        aggregated_risk = (
-            w_short * self._short_horizon_risk(scores) +
-            w_mid * self._mid_horizon_risk(scores, history) +
-            w_far * self._far_horizon_risk(scores)
+        prev_band = (prev_state or {}).get("band", "normal")
+
+        if score >= 0.80:
+            band = "abstain_cleanly"
+        elif score >= 0.65:
+            band = "retrieve_first"
+        elif ambiguity >= 0.60:
+            band = "clarify_first"
+        elif score >= 0.45:
+            band = "cautious"
+        elif score >= 0.25:
+            band = "steer_light"
+        else:
+            band = "normal"
+
+        # lightweight hysteresis
+        if prev_band != band:
+            margin_key = f"{prev_band}_to_{band}"
+            required_margin = hysteresis.get(margin_key, 0.0)
+            prev_score = (prev_state or {}).get("score", 0.0)
+            if abs(score - prev_score) < required_margin:
+                band = prev_band
+
+        guidance = bands[band]["effects"]
+        new_state = {"band": band, "score": score, "signals": signals}
+        return band, guidance, new_state            w_far * self._far_horizon_risk(scores)
         )
 
         band = self._select_band_with_hysteresis(aggregated_risk)
