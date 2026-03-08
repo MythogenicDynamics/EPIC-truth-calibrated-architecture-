@@ -38,9 +38,11 @@ DM on X @D_McMillan76
 https://github.com/PsychoFrogMultimedia/Contextual-Forecasting-Integrator
 
 
-## Installation (for wrappers / experimentation)
+## Quick Start with LLM Wrapper (Anthropic/Claude)
 
-To try LLM-integrated wrappers or RAG examples (coming soon), install these dependencies:
+A basic wrapper integrating Claude (via Anthropic API) + simple in-memory RAG for ARC grounding is now available:
 
-```bash
-pip install anthropic sentence-transformers faiss-cpu
+- File: `examples/epic_wrapper.py`
+- Dependencies:  
+  ```bash
+  pip install anthropic sentence-transformers faiss-cpu
