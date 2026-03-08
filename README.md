@@ -17,4 +17,4 @@ Addresses mathematical inevitability of hallucinations via upstream routing + di
 ## Status
 Conceptual + operational spec (v1.0). Reference impl / wrappers coming.
 
-MIT License | Built on ideas from [your CFI repo]
+MIT License | Built on ideas from https://github.com/PsychoFrogMultimedia/Contextual-Forecasting-Integrator
