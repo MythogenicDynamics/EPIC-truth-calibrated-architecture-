@@ -1,40 +1,92 @@
-from typing import Dict, Any, List
-from .epic_loader import EpicSpecLoader
-from .epic_state import EpicState
-from .cfi_engine import CFIEngine
+from __future__ import annotations
+from dataclasses import dataclass
+from typing import Any, Dict
+
 from .arc_engine import ARCEngine
+from .cfi_engine import CFIEngine
+from .epic_state import EpicState
 
+
+@dataclass
 class EpicCore:
-    """Full EPIC runtime engine — loads spec, executes all phases."""
+    spec: Dict[str, Any]
+    state: EpicState
 
-    def __init__(self, spec_path: str = "docs/EPIC-v10-Operational-Spec.json"):
-        self.loader = EpicSpecLoader(spec_path)
-        self.spec = self.loader.full_spec
-        self.state = EpicState()
-        self.cfi = CFIEngine(self.spec)
+    def __post_init__(self) -> None:
         self.arc = ARCEngine(self.spec)
+        self.cfi = CFIEngine(self.spec)
 
-    def process_query(self, query: str, history: List[str] = None) -> str:
-        """Execute one complete EPIC turn using the spec-defined flow."""
-        history = history or []
+    def probe(self, user_input: str) -> Dict[str, Any]:
+        domain = "EED" if "?" in user_input or len(user_input.split()) > 8 else "WED"
+        return {
+            "domain": domain,
+            "ambiguity_load": 0.3 if " or " in user_input.lower() else 0.1,
+            "cost_of_wrong": 0.7 if any(k in user_input.lower() for k in ["medical", "legal", "financial"]) else 0.2,
+        }
 
-        telemetry = self.state.get_telemetry()
-        telemetry['task_profile'] = "query_processing"
+    def branch(self, profile: Dict[str, Any]) -> Dict[str, Any]:
+        return {"candidate_branches": self.spec["platonic_5_plus_1"]["phases"]["B"]["candidate_branches"]}
 
-        # 1. Probe
-        domain = self._probe_domain(query)
-        self.state.domain = domain
+    def map_phase(self, user_input: str) -> Dict[str, Any]:
+        claims = self.arc.decompose_claims(user_input)
+        dummy_support = {
+            "world_anchors": 0.5,
+            "empirical_anchors": 0.2,
+            "community_anchors": 0.2,
+            "memory_anchors": 0.4,
+            "user_anchors": 0.1,
+            "conflict_load": 0.1,
+        }
+        scored = []
+        for claim in claims:
+            scores = self.arc.score_claim(claim, dummy_support)
+            state = self.arc.assign_state(scores)
+            scored.append({"claim": claim, "scores": scores, "state": state})
+        return {"claims": scored}
 
-        # 2. Branch
-        candidates = self.spec['decision_tables']['lane_priority_order']
+    def resolve(self, probe: Dict[str, Any], mapped: Dict[str, Any]) -> Dict[str, Any]:
+        signals = {
+            "ambiguity_load": probe["ambiguity_load"],
+            "anchor_thinness": 1.0 - max((c["scores"]["anchor_strength"] for c in mapped["claims"]), default=0.0),
+            "bluff_pressure": 0.2,
+            "cost_of_wrong": probe["cost_of_wrong"],
+        }
+        band, guidance, new_cfi_state = self.cfi.forecast(signals, self.state.control_state)
 
-        # 3. Map
-        claims = self.arc.decompose_claims(query)
+        resolved = []
+        for item in mapped["claims"]:
+            lanes = self.arc.legal_lanes(item["state"])
+            lane = "abstain" if band == "abstain_cleanly" else lanes[0]
+            resolved.append({**item, "lane": lane})
 
-        # 4. CFI
-        band, scores, new_cfi_state = self.cfi.forecast(query, history)
+        self.state.control_state = new_cfi_state
+        return {"band": band, "guidance": guidance, "claims": resolved}
 
-        # 5. ARC
+    def define(self, resolved: Dict[str, Any]) -> str:
+        rendered = []
+        for item in resolved["claims"]:
+            claim = item["claim"]
+            state = item["state"]
+            if state == "reasoned_inference":
+                rendered.append(f"Based on what is anchored here, the most likely reading is: {claim}.")
+            elif state == "weak_inference":
+                rendered.append(f"This is a tentative read: {claim}.")
+            elif state == "speculative":
+                rendered.append(f"This is speculative: {claim}.")
+            elif state == "unknown":
+                rendered.append("I do not have enough reliable basis to say.")
+            else:
+                rendered.append(claim + ".")
+        return " ".join(rendered)
+
+    def run(self, user_input: str) -> str:
+        p = self.probe(user_input)
+        _ = self.branch(p)
+        m = self.map_phase(user_input)
+        r = self.resolve(p, m)
+        out = self.define(r)
+        self.state.record_telemetry({"probe": p, "resolved": r})
+        return out        # 5. ARC
         anchors = self._get_anchors()  # Expand to real retrieval
         anchor_score = self.arc.score_anchors(anchors)
         claim_states = self.arc.assign_states(claims, [anchor_score] * len(claims))
