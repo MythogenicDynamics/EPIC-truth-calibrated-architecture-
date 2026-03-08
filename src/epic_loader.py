@@ -1,40 +1,35 @@
+from __future__ import annotations
 import json
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
 
-class EpicSpecLoader:
-    """Loads and validates the EPIC operational spec JSON.
 
-    Raises:
-        FileNotFoundError: If the spec file does not exist.
-        ValueError: If required top-level keys are missing or version mismatch.
-        json.JSONDecodeError: If the JSON is malformed (wrapped in ValueError).
-    """
+REQUIRED_TOP_LEVEL_KEYS = {
+    "system",
+    "domains",
+    "platonic_5_plus_1",
+    "cfi",
+    "arc",
+    "route_system",
+    "disclosure",
+    "governance",
+    "health_monitors",
+    "learning_and_adaptation",
+    "telemetry",
+    "evaluation",
+    "runtime",
+}
 
-    EXPECTED_VERSION = "1.0.0"
 
-    REQUIRED_TOP_KEYS = [
-        "system", "domains", "platonic_5_plus_1", "cfi", "arc", "route_system",
-        "disclosure", "governance", "health_monitors", "learning_and_adaptation",
-        "telemetry", "evaluation", "runtime", "decision_tables", "surface_contract",
-        "canonical_theorem"
-    ]
+def load_epic_spec(path: str | Path) -> Dict[str, Any]:
+    path = Path(path)
+    data = json.loads(path.read_text(encoding="utf-8"))
 
-    def __init__(self, spec_path: str = "docs/EPIC-v10-Operational-Spec.json"):
-        self.spec_path = Path(spec_path)
-        self.spec: Dict[str, Any] = self._load_and_validate()
+    missing = REQUIRED_TOP_LEVEL_KEYS - set(data.keys())
+    if missing:
+        raise ValueError(f"EPIC spec missing required keys: {sorted(missing)}")
 
-    def _load_and_validate(self) -> Dict[str, Any]:
-        if not self.spec_path.exists():
-            raise FileNotFoundError(f"EPIC operational spec not found at: {self.spec_path}")
-
-        try:
-            with self.spec_path.open("r", encoding="utf-8") as f:
-                data = json.load(f)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON in spec file {self.spec_path}: {e}") from e
-
-        # Version check
+    return data        # Version check
         version = data.get("system", {}).get("version")
         if version != self.EXPECTED_VERSION:
             raise ValueError(
