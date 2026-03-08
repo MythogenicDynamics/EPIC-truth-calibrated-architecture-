@@ -64,5 +64,12 @@ A basic wrapper integrating Claude (via Anthropic API) + simple in-memory RAG fo
 
 - Dependencies:
 
+  Requires: Anthropic API key  
+
+  Set as env var: `export ANTHROPIC_API_KEY=sk-ant-...`  
+
+  Get one:
+  https://console.anthropic.com/settings/keys
+
   ```bash
   pip install anthropic sentence-transformers 
