@@ -1,40 +1,53 @@
-from __future__ import annotations
 import json
 from pathlib import Path
-from typing import Any, Dict
+from typing import Dict, Any, List
 
 
-REQUIRED_TOP_LEVEL_KEYS = {
-    "system",
-    "domains",
-    "platonic_5_plus_1",
-    "cfi",
-    "arc",
-    "route_system",
-    "disclosure",
-    "governance",
-    "health_monitors",
-    "learning_and_adaptation",
-    "telemetry",
-    "evaluation",
-    "runtime",
-}
+class EpicSpecLoader:
+    """Loads and validates the EPIC operational spec JSON."""
 
+    REQUIRED_TOP_KEYS: List[str] = [
+        "system",
+        "domains",
+        "platonic_5_plus_1",
+        "cfi",
+        "arc",
+        "route_system",
+        "disclosure",
+        "governance",
+        "health_monitors",
+        "learning_and_adaptation",
+        "telemetry",
+        "evaluation",
+        "runtime",
+        "decision_tables",
+        "surface_contract",
+        "canonical_theorem",
+    ]
 
-def load_epic_spec(path: str | Path) -> Dict[str, Any]:
-    path = Path(path)
-    data = json.loads(path.read_text(encoding="utf-8"))
+    def __init__(self, spec_path: str = "docs/EPIC-v10-Operational-Spec.json"):
+        self.spec_path = Path(spec_path).resolve()
+        self.spec: Dict[str, Any] = self._load_and_validate()
 
-    missing = REQUIRED_TOP_LEVEL_KEYS - set(data.keys())
-    if missing:
-        raise ValueError(f"EPIC spec missing required keys: {sorted(missing)}")
+    def _load_and_validate(self) -> Dict[str, Any]:
+        if not self.spec_path.exists():
+            raise FileNotFoundError(f"Spec file not found: {self.spec_path}")
 
-    return data        # Version check
-        version = data.get("system", {}).get("version")
-        if version != self.EXPECTED_VERSION:
-            raise ValueError(
-                f"Spec version mismatch: expected {self.EXPECTED_VERSION}, "
-                f"got {version or 'missing'}"
+        try:
+            with self.spec_path.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid EPIC JSON spec: {self.spec_path} ({exc})") from exc
+
+        missing = [key for key in self.REQUIRED_TOP_KEYS if key not in data]
+        if missing:
+            raise ValueError(f"Missing required top-level keys: {missing}")
+
+        return data
+
+    @property
+    def full_spec(self) -> Dict[str, Any]:
+        return self.spec                f"got {version or 'missing'}"
             )
 
         # Top-level keys
