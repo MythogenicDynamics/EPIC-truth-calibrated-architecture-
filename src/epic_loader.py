@@ -1,4 +1,3 @@
-# src/epic_loader.py
 import json
 from pathlib import Path
 from typing import Dict, Any
@@ -17,8 +16,7 @@ class EpicSpecLoader:
         with self.spec_path.open("r", encoding="utf-8") as f:
             data = json.load(f)
 
-        # Basic structural validation (expand as needed)
-        required_top_keys = ["system", "domains", "platonic_5_plus_1", "cfi", "arc", "route_system"]
+        required_top_keys = ["system", "domains", "platonic_5_plus_1", "cfi", "arc", "route_system", "disclosure", "governance", "health_monitors", "learning_and_adaptation", "telemetry", "evaluation", "runtime", "decision_tables", "surface_contract", "canonical_theorem"]
         missing = [k for k in required_top_keys if k not in data]
         if missing:
             raise ValueError(f"Missing required top-level keys: {missing}")
